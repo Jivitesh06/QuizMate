@@ -144,7 +144,15 @@ export default function AdminPage() {
         throw new Error(data.error || 'Failed to execute bulk upload.');
       }
 
-      addLog('success', `Bulk Upload: Successfully parsed and inserted ${data.count} questions into Firestore.`);
+      addLog('success', `Bulk Upload: Successfully inserted ${data.count} questions into Firestore.`);
+
+      if (data.skipped > 0) {
+        addLog('info', `Skipped ${data.skipped} rows (see details below).`);
+        (data.skippedDetails || []).forEach((s: { row: number; reason: string }) => {
+          addLog('info', `  Row ${s.row}: ${s.reason}`);
+        });
+      }
+
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {

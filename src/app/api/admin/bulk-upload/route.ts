@@ -173,6 +173,8 @@ export async function POST(req: NextRequest) {
 
     // 4. Ingest and create database objects
     let createdCount = 0;
+    let skippedCount = 0;
+    const skippedRows: { row: number; reason: string }[] = [];
     const batchLimit = 500;
     let batch = adminDb.batch();
     let currentBatchSize = 0;
@@ -189,21 +191,34 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    for (const rawRow of rawRows) {
+    for (let rowIdx = 0; rowIdx < rawRows.length; rowIdx++) {
+      const rawRow = rawRows[rowIdx];
+      const rowNum = rowIdx + 2; // +2 because row 1 is header
+
       const topicName = (rawRow.topic || rawRow.topicName || 'General').trim();
       const questionText = (rawRow.question || rawRow.questionText || '').trim();
       const explanation = (rawRow.explanation || '').trim();
-      const options = [
+
+      // Build options array — pad blank cells with a placeholder
+      const rawOptions = [
         (rawRow.option1 || rawRow.options?.[0] || '').trim(),
         (rawRow.option2 || rawRow.options?.[1] || '').trim(),
         (rawRow.option3 || rawRow.options?.[2] || '').trim(),
         (rawRow.option4 || rawRow.options?.[3] || '').trim(),
       ];
+      // Pad any empty options rather than discarding the whole row
+      const options = rawOptions.map((opt, i) => opt || `Option ${i + 1}`);
 
-      // Validate question row has content
-      if (!questionText || options.some(opt => !opt)) {
-        continue; // skip malformed rows
+      // Only skip if the question text itself is missing
+      if (!questionText) {
+        skippedRows.push({ row: rowNum, reason: 'Empty question text' });
+        skippedCount++;
+        continue;
       }
+
+      // Warn about rows where correctAnswer looks wrong
+      const answerRaw = String(rawRow.correctAnswer || rawRow.correctAnswerIndex || '0').trim();
+      const isUnknown = answerRaw.toUpperCase() === 'UNKNOWN' || answerRaw === '';
 
       // Check topic cache or create new
       const cleanTopicName = topicName.toLowerCase();
@@ -211,13 +226,12 @@ export async function POST(req: NextRequest) {
 
       if (!topicId) {
         topicId = generateSlug(topicName);
-        
+
         // Double check if generated ID exists as a document
         const topicRef = adminDb.collection('topics').doc(topicId);
         const topicSnap = await topicRef.get();
-        
+
         if (!topicSnap.exists) {
-          // Add creating topic to batch
           batch.set(topicRef, {
             id: topicId,
             name: topicName,
@@ -228,9 +242,12 @@ export async function POST(req: NextRequest) {
         topicCache.set(cleanTopicName, topicId);
       }
 
-      // Map correct answer index
-      const answerInput = String(rawRow.correctAnswer || rawRow.correctAnswerIndex || '0');
-      const correctAnswerIndex = mapCorrectAnswer(answerInput, options);
+      // Map correct answer index (UNKNOWN → defaults to 0)
+      const correctAnswerIndex = isUnknown ? 0 : mapCorrectAnswer(answerRaw, options);
+
+      if (isUnknown) {
+        skippedRows.push({ row: rowNum, reason: 'correctAnswer was UNKNOWN — defaulted to option 1' });
+      }
 
       // Create question document
       const questionRef = adminDb.collection('questions').doc();
@@ -240,7 +257,7 @@ export async function POST(req: NextRequest) {
         questionText,
         options,
         correctAnswerIndex,
-        explanation,
+        explanation: explanation || `The correct answer is: ${options[correctAnswerIndex]}.`,
       });
 
       currentBatchSize++;
@@ -259,7 +276,12 @@ export async function POST(req: NextRequest) {
       await batch.commit();
     }
 
-    return NextResponse.json({ success: true, count: createdCount });
+    return NextResponse.json({
+      success: true,
+      count: createdCount,
+      skipped: skippedCount,
+      skippedDetails: skippedRows,
+    });
   } catch (error: any) {
     console.error('Error in bulk upload API:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });

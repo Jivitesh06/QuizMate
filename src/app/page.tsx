@@ -37,7 +37,7 @@ export default function Home() {
           </p>
           <div className={styles.heroActions}>
             <button className={styles.ctaButton} onClick={handleCTA}>
-              {user ? 'Open Student Console' : 'Get Started for Free &rarr;'}
+              {user ? 'Open Student Console' : 'Get Started for Free →'}
             </button>
           </div>
         </div>
