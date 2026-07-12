@@ -8,22 +8,36 @@ const rawKey      = process.env.FIREBASE_PRIVATE_KEY || '';
 
 /**
  * Decode the private key safely — works on Vercel, local, and any platform.
- * We store the key as Base64 in env vars to avoid \n escaping issues entirely.
+ * Supports Hexadecimal and Base64 encoding to avoid newline escaping issues.
  * Falls back to raw string handling for backward-compatibility.
  */
 function decodePrivateKey(raw: string): string {
   const trimmed = raw.trim();
+
+  // 1. Try decoding as Hexadecimal (only 0-9, a-f, no special characters, immune to copy-paste issues)
+  if (/^[0-9a-fA-F]+$/.test(trimmed)) {
+    try {
+      const decoded = Buffer.from(trimmed, 'hex').toString('utf-8');
+      if (decoded.includes('-----BEGIN PRIVATE KEY-----')) {
+        return decoded;
+      }
+    } catch (e) {
+      // Ignore and try next
+    }
+  }
+
+  // 2. Try decoding as Base64
   try {
-    // Strip all whitespaces/newlines from base64 string
     const cleanedB64 = trimmed.replace(/\s+/g, '');
     const decoded = Buffer.from(cleanedB64, 'base64').toString('utf-8');
     if (decoded.includes('-----BEGIN PRIVATE KEY-----')) {
       return decoded;
     }
   } catch (e) {
-    // Not base64 or failed to decode
+    // Ignore and fallback
   }
-  // Fallback: handle literal \n sequences (for local .env.local)
+
+  // 3. Fallback: handle literal \n sequences (for local .env.local)
   return trimmed.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
 }
 
