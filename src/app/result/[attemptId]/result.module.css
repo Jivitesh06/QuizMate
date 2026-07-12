@@ -1,0 +1,276 @@
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+  font-family: var(--font-geist-sans), sans-serif;
+  color: #0f172a;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+.navButton {
+  padding: 0.6rem 1.25rem;
+  background-color: #2563eb;
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  text-decoration: none;
+}
+
+.navButton:hover {
+  background-color: #1d4ed8;
+}
+
+/* Summary Panel Card */
+.summaryCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+  padding: 2rem;
+  margin-bottom: 2.5rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+@media (min-width: 600px) {
+  .summaryCard {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+.scoreSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-right: none;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+@media (min-width: 600px) {
+  .scoreSection {
+    border-right: 1px solid #e2e8f0;
+    border-bottom: none;
+    padding-bottom: 0;
+    padding-right: 2rem;
+  }
+}
+
+.scoreLabel {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.05em;
+}
+
+.scoreVal {
+  font-size: 4rem;
+  font-weight: 900;
+  color: #2563eb;
+  line-height: 1;
+  margin: 0.5rem 0;
+}
+
+.accuracyText {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.statsSection {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  align-content: center;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.statLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.statVal {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+/* Detailed review list styling */
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reviewItem {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.reviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.questionNum {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.statusTag {
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tagCorrect {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.tagIncorrect {
+  background-color: #fecaca;
+  color: #b91c1c;
+}
+
+.tagUnattempted {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.questionText {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  color: #0f172a;
+  white-space: pre-wrap;
+  font-weight: 555;
+}
+
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.85rem 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  font-size: 0.95rem;
+  color: #334155;
+}
+
+.optionCorrect {
+  border-color: #22c55e;
+  background-color: #f0fdf4;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.optionIncorrect {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.optionText {
+  line-height: 1.4;
+}
+
+.optionIndicator {
+  margin-right: 0.75rem;
+  font-weight: 700;
+}
+
+.correctTick {
+  margin-left: auto;
+  color: #22c55e;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.incorrectCross {
+  margin-left: auto;
+  color: #ef4444;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+/* Solution Explanation Card */
+.explanationBox {
+  background-color: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  border-radius: 0 8px 8px 0;
+  padding: 1.25rem 1.5rem;
+}
+
+.explanationTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #1e40af;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.05em;
+}
+
+.explanationText {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #1e3a8a;
+  white-space: pre-wrap;
+}
