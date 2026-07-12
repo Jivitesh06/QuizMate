@@ -12,13 +12,19 @@ const rawKey      = process.env.FIREBASE_PRIVATE_KEY || '';
  * Falls back to raw string handling for backward-compatibility.
  */
 function decodePrivateKey(raw: string): string {
-  // Detect Base64: no spaces, no dashes, length multiple of 4 (approx)
-  const isBase64 = /^[A-Za-z0-9+/]+=*$/.test(raw.trim()) && !raw.includes('BEGIN');
-  if (isBase64) {
-    return Buffer.from(raw.trim(), 'base64').toString('utf-8');
+  const trimmed = raw.trim();
+  try {
+    // Strip all whitespaces/newlines from base64 string
+    const cleanedB64 = trimmed.replace(/\s+/g, '');
+    const decoded = Buffer.from(cleanedB64, 'base64').toString('utf-8');
+    if (decoded.includes('-----BEGIN PRIVATE KEY-----')) {
+      return decoded;
+    }
+  } catch (e) {
+    // Not base64 or failed to decode
   }
   // Fallback: handle literal \n sequences (for local .env.local)
-  return raw.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
+  return trimmed.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
 }
 
 if (getApps().length === 0) {
