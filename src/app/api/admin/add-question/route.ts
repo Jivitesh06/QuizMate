@@ -72,6 +72,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, questionId: questionRef.id });
   } catch (error: any) {
     console.error('Error in manual question creation API:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ 
+      error: error.message || 'Internal server error',
+      name: error.name || 'UnknownError',
+      stack: error.stack || ''
+    }, { status: 500 });
   }
 }

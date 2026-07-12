@@ -85,7 +85,9 @@ export default function AdminPage() {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit question.');
+        const errMsg = data.error || 'Failed to submit question.';
+        const details = data.stack ? `${errMsg} (Stack: ${data.stack.split('\n')[1] || ''})` : errMsg;
+        throw new Error(details);
       }
 
       addLog('success', `Manual Creation: Question successfully created (ID: ${data.questionId}).`);
