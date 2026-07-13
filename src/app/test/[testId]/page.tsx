@@ -283,6 +283,7 @@ export default function TestPage() {
         id: attemptRef.id,
         userId: auth.currentUser.uid,
         userEmail: auth.currentUser.email || 'Unknown',
+        userName: auth.currentUser.displayName || auth.currentUser.email || 'Unknown',
         testId,
         testType: testData.type,
         testTopicId: testData.topicId,

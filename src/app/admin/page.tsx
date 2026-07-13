@@ -16,6 +16,7 @@ interface StudentAttempt {
   id: string;
   userEmail: string;
   userId: string;
+  userName: string;
   testType: string;
   testTopicId: string | null;
   testTopicName?: string;
@@ -61,20 +62,31 @@ export default function AdminPage() {
     try {
       // Fetch all attempts (admin can read all via Firestore rules)
       const attemptsSnap = await getDocs(collection(db, 'attempts'));
-      
+
       // Fetch topics map for name lookup
       const topicsSnap = await getDocs(collection(db, 'topics'));
       const topicsMap = new Map<string, string>();
       topicsSnap.forEach(d => topicsMap.set(d.id, d.data().name || d.id));
 
+      // Fetch users map: uid → name (admin can read all users)
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const usersMap = new Map<string, string>(); // uid → displayName
+      usersSnap.forEach(d => {
+        const data = d.data();
+        if (data.name) usersMap.set(d.id, data.name);
+      });
+
       const list: StudentAttempt[] = [];
       attemptsSnap.forEach(d => {
         const data = d.data();
         const total = (data.correctCount || 0) + (data.incorrectCount || 0) + (data.unattemptedCount || 0);
+        // Priority: attempt.userName > users collection lookup > email > userId
+        const displayName = data.userName || usersMap.get(data.userId) || data.userEmail || data.userId || 'Unknown';
         list.push({
           id: d.id,
           userEmail: data.userEmail || data.userId || 'Unknown',
           userId: data.userId || '',
+          userName: displayName,
           testType: data.testType || 'random',
           testTopicId: data.testTopicId || null,
           testTopicName: data.testTopicId ? (topicsMap.get(data.testTopicId) || data.testTopicId) : 'All Topics',
@@ -369,7 +381,7 @@ export default function AdminPage() {
             <table className={styles.attemptsTable}>
               <thead>
                 <tr>
-                  <th>Student Email</th>
+                  <th>Student</th>
                   <th>Test Type</th>
                   <th>Topic</th>
                   <th>Score</th>
@@ -394,7 +406,10 @@ export default function AdminPage() {
 
                   return (
                     <tr key={att.id}>
-                      <td className={styles.emailCell}>{att.userEmail}</td>
+                      <td>
+                        <div className={styles.emailCell}>{att.userName}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.1rem' }}>{att.userEmail}</div>
+                      </td>
                       <td>
                         <span className={`${styles.testTypeBadge} ${att.testType === 'random' ? styles.testTypeRandom : styles.testTypeTopic}`}>
                           {att.testType === 'random' ? '🎲 Random' : '📌 Topic'}

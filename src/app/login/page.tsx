@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebaseClient';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebaseClient';
 import { useAuth } from '@/context/AuthContext';
 import styles from './login.module.css';
 
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -33,27 +35,45 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (isSignUp && !name.trim()) {
+      setError('Please enter your full name.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        // 1. Create account
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+        // 2. Save display name to Firebase Auth profile
+        await updateProfile(userCredential.user, { displayName: name.trim() });
+
+        // 3. Save user profile to Firestore users collection
+        await setDoc(doc(db, 'users', userCredential.user.uid), {
+          uid: userCredential.user.uid,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          createdAt: new Date().toISOString(),
+        });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-      // Redirect will be triggered automatically by the useEffect
+      // Redirect triggered automatically by useEffect
     } catch (err: any) {
       console.error(err);
       let msg = 'Authentication failed. Please check your credentials.';
       if (err.code === 'auth/email-already-in-use') {
-        msg = 'This email is already in use.';
+        msg = 'This email is already registered. Please sign in instead.';
       } else if (err.code === 'auth/invalid-email') {
         msg = 'Invalid email address format.';
       } else if (err.code === 'auth/weak-password') {
         msg = 'Password must be at least 6 characters long.';
       } else if (
-        err.code === 'auth/invalid-credential' || 
-        err.code === 'auth/user-not-found' || 
+        err.code === 'auth/invalid-credential' ||
+        err.code === 'auth/user-not-found' ||
         err.code === 'auth/wrong-password'
       ) {
         msg = 'Invalid email or password.';
@@ -70,12 +90,29 @@ export default function LoginPage() {
           <div className={styles.logo}>Quiz<span className={styles.logoText}>Mate</span></div>
           <div className={styles.title}>Logical Reasoning Mock Platform</div>
           <div className={styles.subtitle}>
-            {isSignUp ? 'Create a student account' : 'Sign in to access your dashboard'}
+            {isSignUp ? 'Create a student account to get started' : 'Sign in to access your dashboard'}
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className={styles.form}>
           {error && <div className={styles.error}>{error}</div>}
+
+          {/* Name field — only shown during sign up */}
+          {isSignUp && (
+            <div className={styles.formGroup}>
+              <label className={styles.label} htmlFor="fullName">Full Name</label>
+              <input
+                id="fullName"
+                type="text"
+                className={styles.input}
+                placeholder="e.g., Rahul Sharma"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required={isSignUp}
+                autoComplete="name"
+              />
+            </div>
+          )}
 
           <div className={styles.formGroup}>
             <label className={styles.label} htmlFor="email">Email Address</label>
@@ -87,6 +124,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
 
@@ -100,18 +138,19 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
             />
           </div>
 
           <button type="submit" className={styles.button} disabled={submitting}>
-            {submitting ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+            {submitting ? 'Please wait...' : isSignUp ? 'Create Account →' : 'Sign In →'}
           </button>
 
           <div className={styles.switchText}>
             {isSignUp ? (
               <>
                 Already have an account?{' '}
-                <button type="button" className={styles.link} onClick={() => { setIsSignUp(false); setError(''); }}>
+                <button type="button" className={styles.link} onClick={() => { setIsSignUp(false); setError(''); setName(''); }}>
                   Sign In
                 </button>
               </>
