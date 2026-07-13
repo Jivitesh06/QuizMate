@@ -30,9 +30,9 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Attempts: Users can read their own. Users can create their own.
+    // Attempts: Users can read their own. Admin can read all. Users can create their own.
     match /attempts/{attemptId} {
-      allow read: if isLoggedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isLoggedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isLoggedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false;
     }

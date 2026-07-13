@@ -282,6 +282,7 @@ export default function TestPage() {
       await setDoc(attemptRef, {
         id: attemptRef.id,
         userId: auth.currentUser.uid,
+        userEmail: auth.currentUser.email || 'Unknown',
         testId,
         testType: testData.type,
         testTopicId: testData.topicId,

@@ -235,3 +235,159 @@
 .logInfo {
   color: #2563eb;
 }
+
+/* Student Attempts Section */
+.attemptsSection {
+  margin-top: 2.5rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.badge {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.attemptsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.attemptsTable thead tr {
+  background-color: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.attemptsTable th {
+  text-align: left;
+  padding: 0.9rem 1rem;
+  font-weight: 700;
+  color: #475569;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.attemptsTable td {
+  padding: 0.85rem 1rem;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.attemptsTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.attemptsTable tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.emailCell {
+  font-weight: 600;
+  color: #2563eb;
+  font-size: 0.85rem;
+}
+
+.testTypeBadge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.testTypeRandom {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.testTypeTopic {
+  background: #faf5ff;
+  color: #7c3aed;
+}
+
+.scoreBadge {
+  display: inline-block;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.statsRow {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.statCorrect { color: #16a34a; font-weight: 600; }
+.statWrong { color: #dc2626; font-weight: 600; }
+.statSkip { color: #94a3b8; font-weight: 600; }
+
+.reviewLink {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.82rem;
+}
+
+.reviewLink:hover {
+  text-decoration: underline;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 3rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.refreshBtn {
+  padding: 0.4rem 0.9rem;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refreshBtn:hover {
+  background: #e2e8f0;
+}
+
+.loadingMsg {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
