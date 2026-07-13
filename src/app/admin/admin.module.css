@@ -391,3 +391,73 @@
   color: #94a3b8;
   font-size: 0.9rem;
 }
+
+.editBtn, .deleteBtn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.editBtn {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  margin-right: 0.5rem;
+}
+
+.deleteBtn {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.editBtn:hover, .deleteBtn:hover {
+  opacity: 0.85;
+}
+
+.cancelBtn {
+  padding: 0.75rem;
+  background-color: #f1f5f9;
+  color: #334155;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 0.5rem;
+  margin-left: 0.75rem;
+}
+
+.cancelBtn:hover {
+  background-color: #e2e8f0;
+}
+
+.wipeBtn {
+  padding: 0.4rem 0.9rem;
+  background-color: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #b91c1c;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wipeBtn:hover {
+  background-color: #fca5a5;
+  color: #991b1b;
+}
+
+.searchBar {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  width: 250px;
+  box-sizing: border-box;
+}
+

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, doc, setDoc, getDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
@@ -28,49 +28,67 @@ interface StudentAttempt {
   totalQuestions: number;
 }
 
+interface Question {
+  id: string;
+  topicId: string;
+  topicName: string;
+  questionText: string;
+  options: string[];
+  correctAnswerIndex: number;
+  explanation: string;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const { user, loading, isAdmin } = useAuth();
 
+  // Manual Question state
   const [topicName, setTopicName] = useState('');
   const [questionText, setQuestionText] = useState('');
   const [options, setOptions] = useState(['', '', '', '']);
   const [correctAnswerIndex, setCorrectAnswerIndex] = useState('0');
   const [explanation, setExplanation] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
+  // Bulk upload file state
   const [file, setFile] = useState<File | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Logs state
   const [logs, setLogs] = useState<{ type: 'success' | 'error' | 'info'; text: string }[]>([]);
 
-  // Student attempts
+  // Student attempts state
   const [attempts, setAttempts] = useState<StudentAttempt[]>([]);
   const [attemptsLoading, setAttemptsLoading] = useState(true);
+
+  // Questions Manager state
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!loading) {
       if (!user) router.replace('/login');
       else if (!isAdmin) router.replace('/dashboard');
-      else fetchAllAttempts();
+      else {
+        fetchAllAttempts();
+        fetchQuestions();
+      }
     }
   }, [user, loading, isAdmin, router]);
 
   const fetchAllAttempts = async () => {
     setAttemptsLoading(true);
     try {
-      // Fetch all attempts (admin can read all via Firestore rules)
       const attemptsSnap = await getDocs(collection(db, 'attempts'));
-
-      // Fetch topics map for name lookup
       const topicsSnap = await getDocs(collection(db, 'topics'));
       const topicsMap = new Map<string, string>();
       topicsSnap.forEach(d => topicsMap.set(d.id, d.data().name || d.id));
 
-      // Fetch users map: uid → name (admin can read all users)
       const usersSnap = await getDocs(collection(db, 'users'));
-      const usersMap = new Map<string, string>(); // uid → displayName
+      const usersMap = new Map<string, string>();
       usersSnap.forEach(d => {
         const data = d.data();
         if (data.name) usersMap.set(d.id, data.name);
@@ -80,7 +98,6 @@ export default function AdminPage() {
       attemptsSnap.forEach(d => {
         const data = d.data();
         const total = (data.correctCount || 0) + (data.incorrectCount || 0) + (data.unattemptedCount || 0);
-        // Priority: attempt.userName > users collection lookup > email > userId
         const displayName = data.userName || usersMap.get(data.userId) || data.userEmail || data.userId || 'Unknown';
         list.push({
           id: d.id,
@@ -99,7 +116,6 @@ export default function AdminPage() {
         });
       });
 
-      // Sort by most recent first
       list.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
       setAttempts(list);
     } catch (err: any) {
@@ -109,15 +125,37 @@ export default function AdminPage() {
     }
   };
 
-  if (loading || !user || !isAdmin) {
-    return (
-      <div className={styles.container} style={{ textAlign: 'center', marginTop: '10%' }}>
-        <p style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: 500 }}>
-          Verifying administrator authorization...
-        </p>
-      </div>
-    );
-  }
+  const fetchQuestions = async () => {
+    setQuestionsLoading(true);
+    try {
+      const qSnap = await getDocs(collection(db, 'questions'));
+      const topicsSnap = await getDocs(collection(db, 'topics'));
+      const topicsMap = new Map<string, string>();
+      topicsSnap.forEach(d => topicsMap.set(d.id, d.data().name || d.id));
+
+      const list: Question[] = [];
+      qSnap.forEach(d => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          topicId: data.topicId || '',
+          topicName: topicsMap.get(data.topicId) || data.topicId || 'Unknown Topic',
+          questionText: data.questionText || '',
+          options: data.options || [],
+          correctAnswerIndex: data.correctAnswerIndex ?? 0,
+          explanation: data.explanation || '',
+        });
+      });
+
+      // Sort by topicName then questionText
+      list.sort((a, b) => a.topicName.localeCompare(b.topicName) || a.questionText.localeCompare(b.questionText));
+      setQuestions(list);
+    } catch (err: any) {
+      console.error('Error fetching questions:', err);
+    } finally {
+      setQuestionsLoading(false);
+    }
+  };
 
   const addLog = (type: 'success' | 'error' | 'info', text: string) => {
     setLogs((prev) => [{ type, text }, ...prev]);
@@ -165,16 +203,102 @@ export default function AdminPage() {
     if (!topicName.trim() || !questionText.trim()) { addLog('error', 'Topic and Question Text are required.'); return; }
     setManualLoading(true);
     try {
-      const qId = await writeQuestion(topicName, questionText, options, parseInt(correctAnswerIndex, 10), explanation);
-      addLog('success', `✅ Question created! ID: ${qId}`);
+      const cleanTopic = topicName.trim();
+      const topicId = generateSlug(cleanTopic);
+
+      // Ensure topic exists
+      const topicRef = doc(db, 'topics', topicId);
+      const topicSnap = await getDoc(topicRef);
+      if (!topicSnap.exists()) {
+        await setDoc(topicRef, {
+          id: topicId,
+          name: cleanTopic,
+          description: `Practice questions on ${cleanTopic}.`,
+        });
+      }
+
+      const qId = editingQuestionId || doc(collection(db, 'questions')).id;
+      await setDoc(doc(db, 'questions', qId), {
+        id: qId,
+        topicId,
+        questionText: questionText.trim(),
+        options: options.map((o) => o.trim()),
+        correctAnswerIndex: parseInt(correctAnswerIndex, 10),
+        explanation: (explanation || '').trim(),
+      });
+
+      if (editingQuestionId) {
+        addLog('success', `✅ Question updated! ID: ${qId}`);
+        setEditingQuestionId(null);
+      } else {
+        addLog('success', `✅ Question created! ID: ${qId}`);
+      }
+
       setQuestionText('');
       setOptions(['', '', '', '']);
       setCorrectAnswerIndex('0');
       setExplanation('');
+      fetchQuestions(); // Refresh list
     } catch (err: any) {
       addLog('error', `Error: ${err.message}`);
     } finally {
       setManualLoading(false);
+    }
+  };
+
+  const handleStartEdit = (q: Question) => {
+    setEditingQuestionId(q.id);
+    setTopicName(q.topicName);
+    setQuestionText(q.questionText);
+    setOptions([...q.options]);
+    setCorrectAnswerIndex(q.correctAnswerIndex.toString());
+    setExplanation(q.explanation);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    addLog('info', `Editing question ${q.id}...`);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingQuestionId(null);
+    setTopicName('');
+    setQuestionText('');
+    setOptions(['', '', '', '']);
+    setCorrectAnswerIndex('0');
+    setExplanation('');
+    addLog('info', 'Cancelled edit mode.');
+  };
+
+  const handleDeleteQuestion = async (qId: string) => {
+    if (!window.confirm('Are you sure you want to delete this question?')) return;
+    try {
+      await deleteDoc(doc(db, 'questions', qId));
+      addLog('success', `Deleted question ${qId}`);
+      fetchQuestions();
+    } catch (err: any) {
+      addLog('error', `Failed to delete question: ${err.message}`);
+    }
+  };
+
+  const handleWipeQuestionBank = async () => {
+    if (!window.confirm('🚨 WARNING: Are you absolutely sure you want to wipe the ENTIRE question bank?\nThis will delete all questions and topics. This cannot be undone.')) return;
+    if (!window.confirm('Double verification: Please confirm once more to delete all questions and topics.')) return;
+
+    setQuestionsLoading(true);
+    try {
+      const qSnap = await getDocs(collection(db, 'questions'));
+      const tSnap = await getDocs(collection(db, 'topics'));
+
+      addLog('info', `Deleting ${qSnap.size} questions and ${tSnap.size} topics...`);
+
+      const qPromises = qSnap.docs.map(d => deleteDoc(d.ref));
+      const tPromises = tSnap.docs.map(d => deleteDoc(d.ref));
+
+      await Promise.all([...qPromises, ...tPromises]);
+      addLog('success', '✅ Entire question bank and all topics wiped successfully.');
+      fetchQuestions();
+    } catch (err: any) {
+      addLog('error', `Failed to wipe question bank: ${err.message}`);
+    } finally {
+      setQuestionsLoading(false);
     }
   };
 
@@ -224,10 +348,10 @@ export default function AdminPage() {
     addLog('info', `Parsing ${file.name}...`);
     try {
       const content = await file.text();
-      let questions: { topic: string; question: string; options: string[]; correctAnswerIndex: number; explanation: string }[] = [];
+      let questionsToUpload: { topic: string; question: string; options: string[]; correctAnswerIndex: number; explanation: string }[] = [];
       if (file.name.endsWith('.json')) {
         const parsed = JSON.parse(content);
-        questions = (Array.isArray(parsed) ? parsed : []).map((q: any) => ({
+        questionsToUpload = (Array.isArray(parsed) ? parsed : []).map((q: any) => ({
           topic: q.topic || '',
           question: q.question || q.questionText || '',
           options: q.options || [q.option1, q.option2, q.option3, q.option4].filter(Boolean),
@@ -235,12 +359,12 @@ export default function AdminPage() {
           explanation: q.explanation || '',
         }));
       } else {
-        questions = parseCSV(content);
+        questionsToUpload = parseCSV(content);
       }
-      if (questions.length === 0) { addLog('error', 'No valid questions found. Check CSV columns: topic, question, option1-4, correctAnswer, explanation'); return; }
-      addLog('info', `Found ${questions.length} questions. Uploading...`);
+      if (questionsToUpload.length === 0) { addLog('error', 'No valid questions found. Check CSV columns: topic, question, option1-4, correctAnswer, explanation'); return; }
+      addLog('info', `Found ${questionsToUpload.length} questions. Uploading...`);
       let uploaded = 0, failed = 0;
-      for (const q of questions) {
+      for (const q of questionsToUpload) {
         try {
           await writeQuestion(q.topic, q.question, q.options, q.correctAnswerIndex, q.explanation);
           uploaded++;
@@ -252,12 +376,18 @@ export default function AdminPage() {
       addLog('success', `✅ Bulk done! ${uploaded} uploaded${failed > 0 ? `, ${failed} failed` : ''}.`);
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      fetchQuestions(); // Refresh question list
     } catch (err: any) {
       addLog('error', `Bulk Upload Error: ${err.message}`);
     } finally {
       setBulkLoading(false);
     }
   };
+
+  const filteredQuestions = questions.filter(q => 
+    q.questionText.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    q.topicName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className={styles.container}>
@@ -275,7 +405,7 @@ export default function AdminPage() {
       <div className={styles.grid}>
         {/* Manual Creation */}
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>Add Single Question Manually</h2>
+          <h2 className={styles.cardTitle}>{editingQuestionId ? '📝 Edit Question Details' : 'Add Single Question Manually'}</h2>
           <form onSubmit={handleManualSubmit}>
             <div className={styles.formGroup}>
               <label className={styles.label} htmlFor="topicName">Topic Category</label>
@@ -310,9 +440,17 @@ export default function AdminPage() {
               <textarea id="explanation" className={styles.textarea} placeholder="How to arrive at the correct answer..."
                 value={explanation} onChange={(e) => setExplanation(e.target.value)} />
             </div>
-            <button type="submit" className={styles.submitBtn} disabled={manualLoading}>
-              {manualLoading ? 'Saving...' : 'Add Question'}
-            </button>
+            
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <button type="submit" className={styles.submitBtn} style={{ flex: 1 }} disabled={manualLoading}>
+                {manualLoading ? 'Saving...' : editingQuestionId ? 'Save Changes' : 'Add Question'}
+              </button>
+              {editingQuestionId && (
+                <button type="button" className={styles.cancelBtn} onClick={handleCancelEdit}>
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         </section>
 
@@ -358,8 +496,77 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* ─────────────── Student Attempts Section ─────────────── */}
+      {/* ─────────────── Question Bank Manager Section ─────────────── */}
       <section className={styles.attemptsSection}>
+        <div className={styles.sectionHeader}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <h2 className={styles.sectionTitle}>📚 Question Bank Manager</h2>
+            {!questionsLoading && <span className={styles.badge}>{questions.length} questions</span>}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <input 
+              type="text" 
+              placeholder="Search questions or topics..." 
+              className={styles.searchBar} 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <button className={styles.refreshBtn} onClick={fetchQuestions} disabled={questionsLoading}>
+              ↻ Refresh List
+            </button>
+            <button className={styles.wipeBtn} onClick={handleWipeQuestionBank} disabled={questionsLoading}>
+              ⚠️ Wipe Question Bank
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.tableContainer}>
+          {questionsLoading ? (
+            <div className={styles.loadingMsg}>Loading questions...</div>
+          ) : filteredQuestions.length === 0 ? (
+            <div className={styles.emptyState}>
+              No questions found. Try adding questions or changing search query.
+            </div>
+          ) : (
+            <table className={styles.attemptsTable}>
+              <thead>
+                <tr>
+                  <th style={{ width: '20%' }}>Topic</th>
+                  <th style={{ width: '45%' }}>Question Text</th>
+                  <th style={{ width: '20%' }}>Correct Answer</th>
+                  <th style={{ width: '15%', textAlign: 'right' as any }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredQuestions.map((q) => {
+                  const correctText = q.options[q.correctAnswerIndex] || `Option ${q.correctAnswerIndex + 1}`;
+                  return (
+                    <tr key={q.id}>
+                      <td style={{ fontWeight: 600, color: '#1e293b' }}>{q.topicName}</td>
+                      <td style={{ color: '#475569', fontSize: '0.85rem' }}>{q.questionText}</td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#16a34a' }}>{correctText}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Index: {q.correctAnswerIndex + 1}</div>
+                      </td>
+                      <td>
+                        <button className={styles.editBtn} onClick={() => handleStartEdit(q)}>
+                          Edit
+                        </button>
+                        <button className={styles.deleteBtn} onClick={() => handleDeleteQuestion(q.id)}>
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+
+      {/* ─────────────── Student Attempts Section ─────────────── */}
+      <section className={styles.attemptsSection} style={{ marginTop: '3.5rem' }}>
         <div className={styles.sectionHeader}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <h2 className={styles.sectionTitle}>📊 Student Performance Monitor</h2>
