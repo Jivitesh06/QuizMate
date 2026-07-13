@@ -2,15 +2,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebaseClient';
+import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebaseClient';
 import { useAuth } from '@/context/AuthContext';
 import styles from './admin.module.css';
+
+function generateSlug(text: string): string {
+  return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
 
 export default function AdminPage() {
   const router = useRouter();
   const { user, loading, isAdmin } = useAuth();
 
-  // Manual form state
   const [topicName, setTopicName] = useState('');
   const [questionText, setQuestionText] = useState('');
   const [options, setOptions] = useState(['', '', '', '']);
@@ -18,21 +22,16 @@ export default function AdminPage() {
   const [explanation, setExplanation] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
 
-  // Bulk upload state
   const [file, setFile] = useState<File | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Status logs
   const [logs, setLogs] = useState<{ type: 'success' | 'error' | 'info'; text: string }[]>([]);
 
   useEffect(() => {
     if (!loading) {
-      if (!user) {
-        router.replace('/login');
-      } else if (!isAdmin) {
-        router.replace('/dashboard');
-      }
+      if (!user) router.replace('/login');
+      else if (!isAdmin) router.replace('/dashboard');
     }
   }, [user, loading, isAdmin, router]);
 
@@ -51,62 +50,142 @@ export default function AdminPage() {
   };
 
   const handleOptionChange = (index: number, value: string) => {
-    const updatedOptions = [...options];
-    updatedOptions[index] = value;
-    setOptions(updatedOptions);
+    const updated = [...options];
+    updated[index] = value;
+    setOptions(updated);
   };
+
+  // Core function: write a question directly to Firestore using client SDK
+  async function writeQuestion(
+    topicNameStr: string,
+    questionTextStr: string,
+    opts: string[],
+    correctIdx: number,
+    explanationStr: string
+  ): Promise<string> {
+    const cleanTopic = topicNameStr.trim();
+    const topicId = generateSlug(cleanTopic);
+
+    // Ensure topic exists
+    const topicRef = doc(db, 'topics', topicId);
+    const topicSnap = await getDoc(topicRef);
+    if (!topicSnap.exists()) {
+      await setDoc(topicRef, {
+        id: topicId,
+        name: cleanTopic,
+        description: `Practice questions on ${cleanTopic}.`,
+      });
+    }
+
+    // Write question
+    const questionId = doc(collection(db, 'questions')).id;
+    await setDoc(doc(db, 'questions', questionId), {
+      id: questionId,
+      topicId,
+      questionText: questionTextStr.trim(),
+      options: opts.map((o) => o.trim()),
+      correctAnswerIndex: correctIdx,
+      explanation: (explanationStr || '').trim(),
+    });
+
+    return questionId;
+  }
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (options.some(opt => !opt.trim())) {
-      addLog('error', 'Manual Creation: All 4 options are required.');
+    if (options.some((opt) => !opt.trim())) {
+      addLog('error', 'All 4 options are required.');
+      return;
+    }
+    if (!topicName.trim() || !questionText.trim()) {
+      addLog('error', 'Topic and Question Text are required.');
       return;
     }
 
     setManualLoading(true);
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Could not get authentication token.');
-
-      const response = await fetch('/api/admin/add-question', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          topicName,
-          questionText,
-          options,
-          correctAnswerIndex: parseInt(correctAnswerIndex, 10),
-          explanation,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        const errMsg = data.error || 'Failed to submit question.';
-        const details = data.stack ? `${errMsg} (Stack: ${data.stack.split('\n')[1] || ''})` : errMsg;
-        throw new Error(details);
-      }
-
-      addLog('success', `Manual Creation: Question successfully created (ID: ${data.questionId}).`);
-      
-      // Clear manual form except topic (for easier repeated entry)
+      const qId = await writeQuestion(
+        topicName,
+        questionText,
+        options,
+        parseInt(correctAnswerIndex, 10),
+        explanation
+      );
+      addLog('success', `✅ Question created successfully! ID: ${qId}`);
       setQuestionText('');
       setOptions(['', '', '', '']);
       setCorrectAnswerIndex('0');
       setExplanation('');
     } catch (err: any) {
       console.error(err);
-      addLog('error', `Manual Creation Error: ${err.message}`);
+      addLog('error', `Error: ${err.message}`);
     } finally {
       setManualLoading(false);
     }
   };
 
+  // Parse CSV content in the browser
+  function parseCSV(csv: string) {
+    const lines = csv.split('\n').filter((l) => l.trim());
+    if (lines.length < 2) return [];
+
+    const headers = lines[0]
+      .split(',')
+      .map((h) => h.trim().replace(/^"|"$/g, '').toLowerCase());
+
+    const results: {
+      topic: string;
+      question: string;
+      options: string[];
+      correctAnswerIndex: number;
+      explanation: string;
+    }[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      // Basic CSV parser (handles quoted fields)
+      const values: string[] = [];
+      let cur = '';
+      let inQ = false;
+      for (const ch of lines[i]) {
+        if (ch === '"') { inQ = !inQ; }
+        else if (ch === ',' && !inQ) { values.push(cur.trim()); cur = ''; }
+        else { cur += ch; }
+      }
+      values.push(cur.trim());
+
+      const row: Record<string, string> = {};
+      headers.forEach((h, idx) => { row[h] = (values[idx] || '').replace(/^"|"$/g, ''); });
+
+      const topic = row['topic'] || '';
+      const question = row['question'] || '';
+      const opt1 = row['option1'] || '';
+      const opt2 = row['option2'] || '';
+      const opt3 = row['option3'] || '';
+      const opt4 = row['option4'] || '';
+      const correctAnswer = row['correctanswer'] || row['correct_answer'] || row['answer'] || '';
+      const expl = row['explanation'] || '';
+
+      if (!topic || !question || !opt1 || !opt2 || !opt3 || !opt4) continue;
+
+      const opts = [opt1, opt2, opt3, opt4];
+      let correctIdx = 0;
+      const parsed = parseInt(correctAnswer, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 4) {
+        correctIdx = parsed - 1;
+      } else {
+        const found = opts.findIndex(
+          (o) => o.toLowerCase() === correctAnswer.toLowerCase()
+        );
+        if (found >= 0) correctIdx = found;
+      }
+
+      results.push({ topic, question, options: opts, correctAnswerIndex: correctIdx, explanation: expl });
+    }
+    return results;
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
+    if (e.target.files?.[0]) {
       setFile(e.target.files[0]);
       addLog('info', `File selected: ${e.target.files[0].name} (${(e.target.files[0].size / 1024).toFixed(1)} KB)`);
     }
@@ -114,47 +193,48 @@ export default function AdminPage() {
 
   const handleBulkUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      addLog('error', 'Bulk Upload: No file selected.');
-      return;
-    }
+    if (!file) { addLog('error', 'No file selected.'); return; }
 
     setBulkLoading(true);
-    addLog('info', `Starting bulk upload parser for ${file.name}...`);
+    addLog('info', `Parsing ${file.name}...`);
 
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Could not get authentication token.');
+      const content = await file.text();
+      let questions: { topic: string; question: string; options: string[]; correctAnswerIndex: number; explanation: string }[] = [];
 
-      const fileContent = await file.text();
-      const fileType = file.name.endsWith('.json') ? 'json' : 'csv';
-
-      const response = await fetch('/api/admin/bulk-upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          fileContent,
-          fileType,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to execute bulk upload.');
+      if (file.name.endsWith('.json')) {
+        const parsed = JSON.parse(content);
+        questions = (Array.isArray(parsed) ? parsed : []).map((q: any) => ({
+          topic: q.topic || '',
+          question: q.question || q.questionText || '',
+          options: q.options || [q.option1, q.option2, q.option3, q.option4].filter(Boolean),
+          correctAnswerIndex: q.correctAnswerIndex ?? 0,
+          explanation: q.explanation || '',
+        }));
+      } else {
+        questions = parseCSV(content);
       }
 
-      addLog('success', `Bulk Upload: Successfully inserted ${data.count} questions into Firestore.`);
-
-      if (data.skipped > 0) {
-        addLog('info', `Skipped ${data.skipped} rows (see details below).`);
-        (data.skippedDetails || []).forEach((s: { row: number; reason: string }) => {
-          addLog('info', `  Row ${s.row}: ${s.reason}`);
-        });
+      if (questions.length === 0) {
+        addLog('error', 'No valid questions found. Check CSV format: topic, question, option1-4, correctAnswer, explanation');
+        return;
       }
 
+      addLog('info', `Found ${questions.length} questions. Uploading...`);
+      let uploaded = 0;
+      let failed = 0;
+
+      for (const q of questions) {
+        try {
+          await writeQuestion(q.topic, q.question, q.options, q.correctAnswerIndex, q.explanation);
+          uploaded++;
+        } catch (err: any) {
+          failed++;
+          addLog('error', `  Row failed: "${q.question.substring(0, 50)}..." — ${err.message}`);
+        }
+      }
+
+      addLog('success', `✅ Bulk upload done! ${uploaded} uploaded${failed > 0 ? `, ${failed} failed` : ''}.`);
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
@@ -240,7 +320,7 @@ export default function AdminPage() {
             </div>
 
             <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="explanation">Explanation & Solution</label>
+              <label className={styles.label} htmlFor="explanation">Explanation &amp; Solution</label>
               <textarea
                 id="explanation"
                 className={styles.textarea}
@@ -256,12 +336,12 @@ export default function AdminPage() {
           </form>
         </section>
 
-        {/* Bulk Upload & Status Log Card */}
+        {/* Bulk Upload & Status Log */}
         <div>
           <section className={styles.card} style={{ marginBottom: '2rem' }}>
             <h2 className={styles.cardTitle}>Bulk Upload (CSV / JSON)</h2>
             <form onSubmit={handleBulkUpload}>
-              <div 
+              <div
                 className={styles.uploadZone}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -283,32 +363,29 @@ export default function AdminPage() {
 
               {file && (
                 <div className={styles.fileDetails}>
-                  <span>Selected file: <strong>{file.name}</strong></span>
-                  <button 
-                    type="button" 
+                  <span>Selected: <strong>{file.name}</strong></span>
+                  <button
+                    type="button"
                     className={styles.removeFile}
-                    onClick={() => {
-                      setFile(null);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                    }}
+                    onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
                   >
                     Remove
                   </button>
                 </div>
               )}
 
-              <button 
-                type="submit" 
-                className={styles.submitBtn} 
-                style={{ backgroundColor: '#0f172a' }} 
+              <button
+                type="submit"
+                className={styles.submitBtn}
+                style={{ backgroundColor: '#0f172a' }}
                 disabled={bulkLoading || !file}
               >
-                {bulkLoading ? 'Uploading and Parsing...' : 'Process Bulk File'}
+                {bulkLoading ? 'Uploading...' : 'Process Bulk File'}
               </button>
             </form>
           </section>
 
-          {/* Logs panel */}
+          {/* Logs */}
           <section className={styles.card}>
             <h2 className={styles.cardTitle}>Operation Log History</h2>
             <div className={styles.statusLog}>
@@ -318,7 +395,7 @@ export default function AdminPage() {
                 logs.map((log, idx) => (
                   <div key={idx} className={styles.logEntry}>
                     <span className={
-                      log.type === 'success' ? styles.logSuccess : 
+                      log.type === 'success' ? styles.logSuccess :
                       log.type === 'error' ? styles.logError : styles.logInfo
                     }>
                       [{log.type.toUpperCase()}]
