@@ -1,16 +1,16 @@
 .container {
-  max-width: 1000px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 2.5rem 1.5rem;
-  font-family: var(--font-geist-sans), sans-serif;
-  color: #0f172a;
+  font-family: inherit;
+  color: var(--text-primary);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid var(--card-border);
   padding-bottom: 1.5rem;
   margin-bottom: 2.5rem;
 }
@@ -18,21 +18,21 @@
 .title {
   font-size: 2rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.025em;
 }
 
 .subtitle {
   font-size: 0.95rem;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-top: 0.25rem;
 }
 
 .navButton {
   padding: 0.6rem 1.25rem;
-  background-color: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  color: #334155;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
   border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 600;
@@ -41,8 +41,7 @@
 }
 
 .navButton:hover {
-  background-color: #e2e8f0;
-  color: #0f172a;
+  background-color: var(--card-border);
 }
 
 .grid {
@@ -58,10 +57,10 @@
 }
 
 .card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   padding: 2rem;
 }
 
@@ -70,8 +69,8 @@
   font-weight: 700;
   margin-bottom: 1.5rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #f1f5f9;
-  color: #1e293b;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--text-primary);
 }
 
 .formGroup {
@@ -82,7 +81,7 @@
   display: block;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
 }
 
@@ -90,19 +89,19 @@
   width: 100%;
   padding: 0.75rem 1rem;
   border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--card-border);
   font-size: 0.95rem;
-  color: #0f172a;
-  background-color: #f8fafc;
+  color: var(--text-primary);
+  background-color: var(--input-bg);
   transition: all 0.2s ease;
   box-sizing: border-box;
 }
 
 .input:focus, .textarea:focus, .select:focus {
   outline: none;
-  border-color: #2563eb;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: var(--primary);
+  background-color: var(--input-bg);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 .textarea {
@@ -125,7 +124,7 @@
 .submitBtn {
   width: 100%;
   padding: 0.75rem;
-  background-color: #2563eb;
+  background-color: var(--primary);
   color: #ffffff;
   border-radius: 8px;
   border: none;
@@ -137,45 +136,44 @@
 }
 
 .submitBtn:hover {
-  background-color: #1d4ed8;
+  background-color: var(--primary-hover);
 }
 
 .submitBtn:disabled {
-  background-color: #94a3b8;
+  background-color: var(--text-muted);
   cursor: not-allowed;
 }
 
-/* Upload zone design */
 .uploadZone {
-  border: 2px dashed #cbd5e1;
+  border: 2px dashed var(--card-border);
   border-radius: 12px;
   padding: 2.5rem 1.5rem;
   text-align: center;
-  background-color: #f8fafc;
+  background-color: rgba(0, 0, 0, 0.2);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .uploadZone:hover {
-  border-color: #2563eb;
-  background-color: #f0f7ff;
+  border-color: var(--primary);
+  background-color: rgba(99, 102, 241, 0.05);
 }
 
 .uploadIcon {
   font-size: 2.5rem;
   margin-bottom: 1rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .uploadText {
   font-size: 0.95rem;
-  color: #475569;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .uploadSubtext {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin-top: 0.5rem;
 }
 
@@ -186,16 +184,18 @@
 .fileDetails {
   margin-top: 1rem;
   padding: 0.75rem;
-  background-color: #f1f5f9;
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   font-size: 0.85rem;
+  color: var(--text-secondary);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .removeFile {
-  color: #dc2626;
+  color: var(--error);
   font-weight: 600;
   cursor: pointer;
   background: none;
@@ -210,30 +210,31 @@
   margin-top: 1.5rem;
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   padding: 1rem;
-  background-color: #f8fafc;
+  background-color: rgba(0, 0, 0, 0.2);
   font-size: 0.85rem;
 }
 
 .logEntry {
   padding: 0.35rem 0;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--text-secondary);
 }
 
 .logSuccess {
-  color: #16a34a;
+  color: var(--success);
   font-weight: 600;
 }
 
 .logError {
-  color: #dc2626;
+  color: var(--error);
   font-weight: 600;
 }
 
 .logInfo {
-  color: #2563eb;
+  color: #818cf8;
 }
 
 /* Student Attempts Section */
@@ -246,17 +247,19 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .sectionTitle {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .badge {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
   border-radius: 999px;
   padding: 0.2rem 0.75rem;
   font-size: 0.8rem;
@@ -265,8 +268,9 @@
 
 .tableContainer {
   overflow-x: auto;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--card-border);
   border-radius: 12px;
+  background-color: var(--card-bg);
 }
 
 .attemptsTable {
@@ -276,15 +280,15 @@
 }
 
 .attemptsTable thead tr {
-  background-color: #f8fafc;
-  border-bottom: 2px solid #e2e8f0;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-bottom: 2px solid var(--card-border);
 }
 
 .attemptsTable th {
   text-align: left;
   padding: 0.9rem 1rem;
   font-weight: 700;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -293,8 +297,8 @@
 
 .attemptsTable td {
   padding: 0.85rem 1rem;
-  color: #1e293b;
-  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--card-border);
   vertical-align: middle;
 }
 
@@ -303,12 +307,12 @@
 }
 
 .attemptsTable tbody tr:hover {
-  background-color: #f8fafc;
+  background-color: rgba(255, 255, 255, 0.02);
 }
 
 .emailCell {
   font-weight: 600;
-  color: #2563eb;
+  color: #818cf8;
   font-size: 0.85rem;
 }
 
@@ -321,19 +325,20 @@
 }
 
 .testTypeRandom {
-  background: #f0fdf4;
-  color: #16a34a;
+  background: var(--success-bg);
+  color: #a7f3d0;
 }
 
 .testTypeTopic {
-  background: #faf5ff;
-  color: #7c3aed;
+  background: rgba(139, 92, 246, 0.2);
+  color: #c084fc;
 }
 
 .scoreBadge {
   display: inline-block;
-  background: #0f172a;
-  color: #ffffff;
+  background: #09090b;
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
   padding: 0.25rem 0.7rem;
   border-radius: 999px;
   font-weight: 700;
@@ -347,12 +352,12 @@
   font-size: 0.8rem;
 }
 
-.statCorrect { color: #16a34a; font-weight: 600; }
-.statWrong { color: #dc2626; font-weight: 600; }
-.statSkip { color: #94a3b8; font-weight: 600; }
+.statCorrect { color: var(--success); font-weight: 600; }
+.statWrong { color: var(--error); font-weight: 600; }
+.statSkip { color: var(--text-muted); font-weight: 600; }
 
 .reviewLink {
-  color: #2563eb;
+  color: #818cf8;
   font-weight: 600;
   text-decoration: none;
   font-size: 0.82rem;
@@ -365,30 +370,30 @@
 .emptyState {
   text-align: center;
   padding: 3rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-style: italic;
 }
 
 .refreshBtn {
   padding: 0.4rem 0.9rem;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .refreshBtn:hover {
-  background: #e2e8f0;
+  background: var(--card-border);
 }
 
 .loadingMsg {
   text-align: center;
   padding: 2rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
@@ -403,14 +408,14 @@
 }
 
 .editBtn {
-  background-color: #dbeafe;
-  color: #1d4ed8;
+  background-color: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
   margin-right: 0.5rem;
 }
 
 .deleteBtn {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: var(--error-bg);
+  color: #fca5a5;
 }
 
 .editBtn:hover, .deleteBtn:hover {
@@ -419,45 +424,51 @@
 
 .cancelBtn {
   padding: 0.75rem;
-  background-color: #f1f5f9;
-  color: #334155;
+  background-color: var(--card-bg);
+  color: var(--text-secondary);
   border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--card-border);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   margin-top: 0.5rem;
   margin-left: 0.75rem;
 }
 
 .cancelBtn:hover {
-  background-color: #e2e8f0;
+  background-color: var(--card-border);
 }
 
 .wipeBtn {
   padding: 0.4rem 0.9rem;
-  background-color: #fee2e2;
-  border: 1px solid #fca5a5;
+  background-color: var(--error-bg);
+  border: 1px solid var(--error);
   border-radius: 8px;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #b91c1c;
+  color: #fca5a5;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .wipeBtn:hover {
-  background-color: #fca5a5;
-  color: #991b1b;
+  background-color: var(--error);
+  color: #ffffff;
 }
 
 .searchBar {
   padding: 0.45rem 0.85rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   font-size: 0.85rem;
+  background-color: var(--input-bg);
+  color: var(--text-primary);
   width: 250px;
   box-sizing: border-box;
 }
 
+.searchBar:focus {
+  outline: none;
+  border-color: var(--primary);
+}
