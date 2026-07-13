@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { auth } from '@/lib/firebaseClient';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebaseClient';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import styles from './result.module.css';
@@ -53,22 +54,74 @@ export default function ResultPage() {
 
   const fetchAttemptResults = async () => {
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Authorization required.');
+      if (!auth.currentUser) throw new Error('Not authenticated.');
 
-      const response = await fetch(`/api/result/${attemptId}`, {
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-        },
-      });
+      // Fetch attempt document directly from Firestore
+      const attemptSnap = await getDoc(doc(db, 'attempts', attemptId));
+      if (!attemptSnap.exists()) throw new Error('Attempt not found.');
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch test results.');
+      const attemptData = attemptSnap.data();
+
+      // Get topic name if needed
+      let topicName = 'All Topics';
+      if (attemptData.testTopicId) {
+        const topicSnap = await getDoc(doc(db, 'topics', attemptData.testTopicId));
+        if (topicSnap.exists()) topicName = topicSnap.data()?.name || 'Unknown Topic';
       }
 
-      setAttempt(data.attempt);
-      setQuestions(data.questions);
+      setAttempt({
+        id: attemptData.id,
+        testId: attemptData.testId,
+        testType: attemptData.testType,
+        testTopicId: attemptData.testTopicId,
+        testTopicName: topicName,
+        score: attemptData.score,
+        correctCount: attemptData.correctCount,
+        incorrectCount: attemptData.incorrectCount,
+        unattemptedCount: attemptData.unattemptedCount,
+        startedAt: attemptData.startedAt,
+        submittedAt: attemptData.submittedAt,
+      });
+
+      // Build question review list from embedded questionDetails
+      const qDetails: QuestionReview[] = (attemptData.questionDetails || []).map((qd: any) => ({
+        id: qd.questionId,
+        topicId: qd.topicId || '',
+        questionText: qd.questionText || '',
+        options: qd.options || [],
+        correctAnswerIndex: qd.correctAnswerIndex ?? -1,
+        explanation: qd.explanation || '',
+        studentSelectedIndex: qd.studentSelectedIndex ?? null,
+      }));
+
+      // Fallback: if no questionDetails (old attempts), fetch questions from Firestore
+      if (qDetails.length === 0 && attemptData.answers?.length > 0) {
+        const answersList: { questionId: string; selectedIndex: number | null }[] = attemptData.answers || [];
+        const questionIds = answersList.map((a: any) => a.questionId);
+        const questionsMap = new Map<string, any>();
+        const chunks: string[][] = [];
+        for (let i = 0; i < questionIds.length; i += 10) chunks.push(questionIds.slice(i, i + 10));
+        for (const chunk of chunks) {
+          const snap = await getDocs(query(collection(db, 'questions'), where('id', 'in', chunk)));
+          snap.forEach(d => questionsMap.set(d.id, d.data()));
+        }
+        const fallbackQuestions: QuestionReview[] = questionIds.map((qId: string) => {
+          const qData = questionsMap.get(qId);
+          const studentAns = answersList.find(a => a.questionId === qId);
+          return {
+            id: qId,
+            topicId: qData?.topicId || '',
+            questionText: qData?.questionText || '',
+            options: qData?.options || [],
+            correctAnswerIndex: qData?.correctAnswerIndex ?? -1,
+            explanation: qData?.explanation || '',
+            studentSelectedIndex: studentAns?.selectedIndex ?? null,
+          };
+        });
+        setQuestions(fallbackQuestions);
+      } else {
+        setQuestions(qDetails);
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'An error occurred loading results.');

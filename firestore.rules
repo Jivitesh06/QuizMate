@@ -16,16 +16,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Questions: All logged-in users can read (needed for quiz).
+    // Questions: All logged-in users can read (needed for quiz + result review).
     // Only admin can write.
     match /questions/{questionId} {
       allow read: if isLoggedIn();
       allow write: if isAdmin();
     }
 
-    // Tests: Admin only
+    // Tests: Any logged-in user can create and read their own test.
     match /tests/{testId} {
-      allow read, write: if isAdmin();
+      allow create: if isLoggedIn();
+      allow read: if isLoggedIn();
+      allow update, delete: if isAdmin();
     }
 
     // Attempts: Users can read their own. Users can create their own.

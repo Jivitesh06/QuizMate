@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { auth } from '@/lib/firebaseClient';
+import { collection, doc, getDoc, getDocs, setDoc, query, where } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebaseClient';
 import { useAuth } from '@/context/AuthContext';
 import styles from './test.module.css';
 
@@ -58,34 +59,54 @@ export default function TestPage() {
 
   const fetchTestQuestions = async () => {
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Authorization required.');
+      if (!auth.currentUser) throw new Error('Not authenticated.');
 
-      const response = await fetch(`/api/test/${testId}`, {
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-        },
-      });
+      // 1. Fetch test document from Firestore
+      const testSnap = await getDoc(doc(db, 'tests', testId));
+      if (!testSnap.exists()) throw new Error('Test session not found.');
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch test questions.');
+      const testData = testSnap.data();
+      const questionIds: string[] = testData.questionIds || [];
+
+      // 2. Fetch questions in chunks (Firestore 'in' limit = 10)
+      const questionsMap = new Map<string, Question>();
+      const chunks: string[][] = [];
+      for (let i = 0; i < questionIds.length; i += 10) {
+        chunks.push(questionIds.slice(i, i + 10));
+      }
+      for (const chunk of chunks) {
+        const snap = await getDocs(query(collection(db, 'questions'), where('id', 'in', chunk)));
+        snap.forEach(d => {
+          const data = d.data();
+          questionsMap.set(d.id, {
+            id: d.id,
+            topicId: data.topicId,
+            questionText: data.questionText,
+            options: data.options,
+          });
+        });
       }
 
-      setTest(data.test);
-      setQuestions(data.questions);
+      // 3. Sort in original order
+      const orderedQuestions = questionIds
+        .map(id => questionsMap.get(id))
+        .filter((q): q is Question => q !== undefined);
 
-      // Initialize status arrays
-      const size = data.questions.length;
+      setTest({
+        id: testData.id,
+        type: testData.type,
+        topicId: testData.topicId,
+        durationMinutes: testData.durationMinutes || 15,
+      });
+      setQuestions(orderedQuestions);
+
+      const size = orderedQuestions.length;
       setAnswers(new Array(size).fill(null));
       setMarked(new Array(size).fill(false));
-      
       const initialVisited = new Array(size).fill(false);
-      if (size > 0) initialVisited[0] = true; // Mark first question visited
+      if (size > 0) initialVisited[0] = true;
       setVisited(initialVisited);
-
-      // Initialize Timer (minutes to seconds)
-      setTimeLeft((data.test.durationMinutes || 15) * 60);
+      setTimeLeft((testData.durationMinutes || 15) * 60);
     } catch (err: any) {
       console.error(err);
       setSubmitError(err.message || 'An error occurred loading the test.');
@@ -189,33 +210,92 @@ export default function TestPage() {
     if (timerRef.current) clearTimeout(timerRef.current);
 
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Authorization required.');
+      if (!auth.currentUser) throw new Error('Not authenticated.');
 
-      const submissionAnswers = questions.map((q, idx) => ({
-        questionId: q.id,
-        selectedIndex: answers[idx],
-      }));
+      // 1. Fetch test doc to get questionIds and metadata
+      const testSnap = await getDoc(doc(db, 'tests', testId));
+      if (!testSnap.exists()) throw new Error('Test session not found.');
+      const testData = testSnap.data();
+      const questionIds: string[] = testData.questionIds || [];
 
-      const response = await fetch('/api/submit-test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          testId,
-          answers: submissionAnswers,
-          isAutoSubmit: isAuto,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit test.');
+      // 2. Fetch full question data (for grading correctAnswerIndex + explanation for result)
+      const questionsMap = new Map<string, { correctAnswerIndex: number; explanation: string; questionText: string; options: string[]; topicId: string }>();
+      const chunks: string[][] = [];
+      for (let i = 0; i < questionIds.length; i += 10) {
+        chunks.push(questionIds.slice(i, i + 10));
+      }
+      for (const chunk of chunks) {
+        const snap = await getDocs(query(collection(db, 'questions'), where('id', 'in', chunk)));
+        snap.forEach(d => {
+          const data = d.data();
+          questionsMap.set(d.id, {
+            correctAnswerIndex: data.correctAnswerIndex ?? -1,
+            explanation: data.explanation || '',
+            questionText: data.questionText || '',
+            options: data.options || [],
+            topicId: data.topicId || '',
+          });
+        });
       }
 
-      router.replace(`/result/${data.attemptId}`);
+      // 3. Build submission answers
+      const submissionAnswers = questions.map((q, idx) => ({
+        questionId: q.id,
+        selectedIndex: answers[idx] ?? null,
+      }));
+
+      // 4. Grade client-side
+      let correctCount = 0, incorrectCount = 0, unattemptedCount = 0;
+      questionIds.forEach(qId => {
+        const qInfo = questionsMap.get(qId);
+        const studentAns = submissionAnswers.find(a => a.questionId === qId);
+        if (!qInfo) { unattemptedCount++; return; }
+        const isAttempted = studentAns && studentAns.selectedIndex !== null && studentAns.selectedIndex !== undefined;
+        if (!isAttempted) {
+          unattemptedCount++;
+        } else if (studentAns!.selectedIndex === qInfo.correctAnswerIndex) {
+          correctCount++;
+        } else {
+          incorrectCount++;
+        }
+      });
+
+      const score = correctCount * 3;
+
+      // 5. Embed full question details in attempt (so result page works without extra queries)
+      const questionDetails = questionIds.map(qId => {
+        const qInfo = questionsMap.get(qId);
+        const studentAns = submissionAnswers.find(a => a.questionId === qId);
+        return {
+          questionId: qId,
+          questionText: qInfo?.questionText ?? '',
+          options: qInfo?.options ?? [],
+          topicId: qInfo?.topicId ?? '',
+          correctAnswerIndex: qInfo?.correctAnswerIndex ?? -1,
+          explanation: qInfo?.explanation ?? '',
+          studentSelectedIndex: studentAns?.selectedIndex ?? null,
+        };
+      });
+
+      // 6. Save attempt to Firestore
+      const attemptRef = doc(collection(db, 'attempts'));
+      await setDoc(attemptRef, {
+        id: attemptRef.id,
+        userId: auth.currentUser.uid,
+        testId,
+        testType: testData.type,
+        testTopicId: testData.topicId,
+        answers: submissionAnswers,
+        questionDetails,
+        score,
+        correctCount,
+        incorrectCount,
+        unattemptedCount,
+        startedAt: testData.createdAt || new Date().toISOString(),
+        submittedAt: new Date().toISOString(),
+      });
+
+      router.replace(`/result/${attemptRef.id}`);
     } catch (err: any) {
       console.error(err);
       setSubmitError(err.message || 'An error occurred while submitting.');

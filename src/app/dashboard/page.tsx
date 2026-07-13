@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebaseClient';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
@@ -126,30 +126,39 @@ export default function DashboardPage() {
     setStartLoading(true);
 
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error('Authorization required.');
+      if (!auth.currentUser) throw new Error('Not authenticated.');
 
-      const response = await fetch('/api/test/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          type: testType,
-          topicId: testType === 'topic' ? selectedTopicId : null,
-          questionCount: parseInt(questionCount, 10),
-          durationMinutes: parseInt(durationMinutes, 10),
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to initialize test.');
+      // 1. Query questions directly from Firestore
+      let questionsSnap;
+      if (testType === 'topic' && selectedTopicId) {
+        questionsSnap = await getDocs(query(collection(db, 'questions'), where('topicId', '==', selectedTopicId)));
+      } else {
+        questionsSnap = await getDocs(collection(db, 'questions'));
       }
 
-      // Route user to the testing workspace
-      router.push(`/test/${data.testId}`);
+      if (questionsSnap.empty) {
+        throw new Error('No questions found for this configuration. Please add questions via Admin Console.');
+      }
+
+      // 2. Shuffle and select random questions
+      const allIds = questionsSnap.docs.map(d => d.id);
+      const shuffled = [...allIds].sort(() => Math.random() - 0.5);
+      const count = parseInt(questionCount, 10) || 10;
+      const selectedIds = shuffled.slice(0, Math.min(count, shuffled.length));
+
+      // 3. Create test document directly in Firestore
+      const testRef = doc(collection(db, 'tests'));
+      await setDoc(testRef, {
+        id: testRef.id,
+        userId: auth.currentUser.uid,
+        type: testType,
+        topicId: testType === 'topic' ? selectedTopicId : null,
+        durationMinutes: parseInt(durationMinutes, 10) || 15,
+        questionIds: selectedIds,
+        createdAt: new Date().toISOString(),
+      });
+
+      router.push(`/test/${testRef.id}`);
     } catch (err: any) {
       console.error(err);
       setFormError(err.message || 'An error occurred while creating the test.');
