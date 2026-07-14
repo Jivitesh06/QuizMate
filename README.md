@@ -1,6 +1,6 @@
 # 🎯 QuizMate — Logical Reasoning Prep Portal
 
-QuizMate is a premium, serverless logical reasoning quiz platform tailored for aptitude and competitive exam preparations (such as AIMCAT, CAT, and employability tests). Built with Next.js, Firestore, and Firebase Authentication, the application is wrapped in a high-contrast, modern dark developer console theme for maximum readability and zero-latency performance.
+QuizMate is a premium, serverless logical reasoning quiz platform tailored for aptitude and competitive exam preparations (such as AMCAT, CAT, and employability tests). Built with Next.js, Firestore, and Firebase Authentication, the application is wrapped in a high-contrast, modern dark developer console theme for maximum readability and zero-latency performance.
 
 ---
 

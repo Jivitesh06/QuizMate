@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "QuizMate - Logical Reasoning Prep",
-  description: "Aptitude and employability mock tests for Logical Reasoning (AIMCAT style)",
+  description: "Aptitude and employability mock tests for Logical Reasoning (AMCAT style)",
 };
 
 export default function RootLayout({

@@ -33,7 +33,7 @@ export default function Home() {
             Master <span>Logical Reasoning</span> for Competitive Exams
           </h1>
           <p className={styles.heroSubtitle}>
-            Practice with high-quality mock tests structured specifically like AIMCAT exams. Improve accuracy, monitor pace, and track historical results.
+            Practice with high-quality mock tests structured specifically like AMCAT exams. Improve accuracy, monitor pace, and track historical results.
           </p>
           <div className={styles.heroActions}>
             <button className={styles.ctaButton} onClick={handleCTA}>
@@ -53,7 +53,7 @@ export default function Home() {
 
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>📊</div>
-            <h3 className={styles.featureTitle}>AIMCAT Grading Layout</h3>
+            <h3 className={styles.featureTitle}>AMCAT Grading Layout</h3>
             <p className={styles.featureDescription}>
               Experience CAT-style marking (+3 for correct, 0 for incorrect) and split-screen MCQ panels with color-coded question grids.
             </p>
