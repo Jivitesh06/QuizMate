@@ -66,14 +66,6 @@ export default function Home() {
               Analyze your performance with accuracy percentages, exact pacing metrics, and step-by-step logical explanations for every question.
             </p>
           </div>
-
-          <div className={styles.featureCard}>
-            <div className={styles.featureIcon}>📁</div>
-            <h3 className={styles.featureTitle}>Admin CSV Ingestion</h3>
-            <p className={styles.featureDescription}>
-              Upload questions in bulk via CSV or JSON files. Dynamic parsing automatically structures topics, categories, options, and keys.
-            </p>
-          </div>
         </div>
       </main>
 
